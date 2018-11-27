@@ -1,0 +1,291 @@
+#Loading packages and Data
+install.packages("data.table")
+library("data.table")
+Data <- fread("finalData1.csv")
+
+#Factorizing the variables
+
+Data$VacantBuilding <- as.factor(Data$VacantBuilding)
+Data$Num.Open.Violations <- as.factor(Data$Num.Open.Violations)
+Data$AssessedValue <- as.factor(Data$AssessedValue)
+Data$LandUse <- as.factor(Data$LandUse)
+Data$YearBuilt <- as.factor(Data$YearBuilt)
+
+#Variable description
+#VacantBuilding - Varaible denoting whether a building is vacant or not
+#Num.Open.Violations - Number of open violations on the building
+#AssessedValue - Estimated value of the building
+#LandUse - The land used up by the building
+#YearBuilt - The year on which the building was buildt
+#Owner Occupied - The probability that the owner itself is occupying the house(It is in probability since this data is not available and we calculated the probability from census data)
+#Total taxes owed - The taxes owed by the building
+#H1-3 - The probability that the house may be occupied by 1-3 people(It is in probability since this data is not available and we calculated the probability from census data)
+#H4- The probability that the house may be occupied by more than 3 people(It is in probability since this data is not available and we calculated the probability from census data)
+#Total crimes- The total number of crimes that happened over a period of three years in the street of the house
+--#Owner occupied , Total taxes owed, H1-3, H4, Total crimes
+
+#Feature Engineering - Manipulating the variables
+
+#Bucketing owner occupied column
+
+Vector1 <- Data$Owner_Occupied
+Vector1 <- as.numeric(Vector1)
+
+for(i in 1:14907)
+{
+  if(Vector1[i]<0.25)
+  {
+     Vector1[i] <- "Very Low"
+  }
+  else if(Vector1[i]<0.5)
+  {
+    Vector1[i] <- "Low"
+  }
+  else if(Vector1[i]<0.75)
+  {
+    Vector1[i] <- "High"
+  }
+  else if(Vector1[i]>0.74)
+  {
+    Vector1[i] <- "Very High"
+  }
+    
+}
+Owner_occupied_Cat <- as.factor(Vector1)
+
+#Bucketinzing H1-3 variable
+
+Vector2 <- Data$H_.1.3.P
+Vector2 <- as.numeric(Vector2)
+
+for(i in 1:14907)
+{
+  if(Vector2[i]<0.25)
+  {
+    Vector2[i] <- "Very Low"
+  }
+  else if(Vector2[i]<0.5)
+  {
+    Vector2[i] <- "Low"
+  }
+  else if(Vector2[i]<0.75)
+  {
+    Vector2[i] <- "High"
+  }
+  else if(Vector2[i]>0.74)
+  {
+    Vector2[i] <- "Very High"
+  }
+  
+}
+H1_3_Cat <- as.factor(Vector2)
+
+#Bucketizing H4
+
+Vector3 <- Data$H.4..P
+Vector3 <- as.numeric(Vector3)
+
+for(i in 1:14907)
+{
+  if(Vector3[i]<0.25)
+  {
+    Vector3[i] <- "Very Low"
+  }
+  else if(Vector3[i]<0.5)
+  {
+    Vector3[i] <- "Low"
+  }
+  else if(Vector3[i]<0.75)
+  {
+    Vector3[i] <- "High"
+  }
+  else if(Vector3[i]>0.74)
+  {
+    Vector3[i] <- "Very High"
+  }
+  
+}
+H4_Cat <- as.factor(Vector3)
+
+#Bucketizing Total taxes owed
+Vector4 <- Data$Total.Taxes.Owed
+Vector4 <- as.numeric(Vector4)
+for(i in 1:14907)
+{
+  if(Vector4[i]<2000)
+  {
+    Vector4[i] <- 0
+  }
+  else if(Vector4[i]<4000)
+  {
+    Vector4[i] <- 2000
+  }
+  else if(Vector4[i]<6000)
+  {
+    Vector4[i] <- 4000
+  }
+  else if(Vector4[i]<8000)
+  {
+    Vector4[i] <- 6000
+  }
+  else if(Vector4[i]<10000)
+  {
+    Vector4[i] <- 8000
+  }
+  else if(Vector4[i]<20000)
+  {
+    Vector4[i] <- 10000
+  }
+  else if(Vector4[i]<30000)
+  {
+    Vector4[i] <- 20000
+  }
+  else if(Vector4[i]<40000)
+  {
+    Vector4[i] <- 30000
+  }
+  else if(Vector4[i]<50000)
+  {
+    Vector4[i] <- 40000
+  }
+  else if(Vector4[i]<100000)
+  {
+    Vector4[i] <- 50000
+  }
+  else if(Vector4[i]>99999)
+  {
+    Vector4[i] <- 100000
+  }
+
+}
+
+Total_taxes_Cat <- as.factor(Vector4)
+
+#Bucketizing crimes
+
+Vector5 <- Data$Total_crimes
+Vector5 <- as.numeric(Vector5)
+Vector5[11759]
+
+for(i in 1:14907)
+{
+  if(Vector5[i]<6)
+  {
+    Vector5[i] <- 5
+  }
+  else if(Vector5[i]<16)
+  {
+    Vector5[i] <- 15
+  }
+  else if(Vector5[i]<30)
+  {
+    Vector5[i] <- 30
+  }
+  else if(Vector5[i]>29)
+  {
+    Vector5[i] <- 45
+  }
+  
+}
+Total_crimes_Cat <- as.factor(Vector5)
+
+# Combining the bucketized  fields with the dataframe
+Data <- data.frame(Data, Total_taxes_Cat,Total_crimes_Cat, H1_3_Cat, H4_Cat,Owner_occupied_Cat)
+
+
+
+# Preparing the training data by taking equal number of yes and no values for the predicted variable Vacant Building so that the model is not biased
+
+data_yes <- Data[Data$VacantBuilding== "Y",]
+data_no <- Data[Data$VacantBuilding == "N",]
+
+
+#Randomizing the rows
+data_no <- data_no[sample(nrow(data_no)),]
+data_no_equal <- data_no[1:746,]
+
+data_final <- rbind(data_yes,data_no_equal)
+data_final <- data_final[sample(nrow(data_final)),]
+
+#Splitting Train and test data
+data_test <- data_final[1:1268,]
+data_train <- data_final[1269:1492,]
+
+#Implementing SVM
+svm.model <- svm(VacantBuilding ~ . , data = data_train, cost = 10,gamma=10,kernel="radial")
+
+
+#Using the test data to predict the model
+svm.pred <- predict(svm.model, data_test)
+svm.pred
+
+#Comparing the testing values and predicted values
+comparison_svm <- data.frame(data_test$VacantBuilding,svm.pred)
+comparison
+#Calculating Confusion Matrix
+
+True_Positive <- 0
+True_Negative <- 0
+False_Positive <- 0
+False_Negative <- 0
+
+for(x in range 0:nrow(comparison_svm))
+{
+  if(comparison_svm$svm.pred[x]=="Y" & comparison_svm$VacantBuilding[x]=="Y")
+  {
+    True_Positive <- True_Positive + 1
+  }
+  else if(comparison_svm$svm.pred[x]=="N" & comparison_svm$VacantBuilding[x]=="N")
+  {
+    True_Negative <- True_Negative + 1
+  }
+  else if(comparison_svm$svm.pred[x]=="Y" & comparison_svm$VacantBuilding[x]=="N")
+  {
+    False_Positive <- False_Positive + 1
+  }
+  else if(comparison_svm$svm.pred[x]=="N" & comparison_svm$VacantBuilding[x]=="Y")
+  {
+    False_Negative <- False_Negative + 1
+  }
+}
+
+
+#A line about the accuracy
+
+#Naive Bayes
+
+Naive_Bayes_Model=naiveBayes(VacantBuilding ~ ., data= data_train)
+nb.pred <- predict(Naive_Bayes_Model, data_test)
+
+comparison_Naives <- data.frame(data_test$VacantBuilding,nb.pred)
+
+#Calculating Confusion Matrix
+
+True_Positive <- 0
+True_Negative <- 0
+False_Positive <- 0
+False_Negative <- 0
+
+for(x in range 0:nrow(comparison_Naives))
+{
+  if(comparison_Naives$nb.pred[x]=="Y" & comparison_Naives$VacantBuilding[x]=="Y")
+  {
+    True_Positive <- True_Positive + 1
+  }
+  else if(comparison_Naives$nb.pred[x]=="N" & comparison_Naives$VacantBuilding[x]=="N")
+  {
+    True_Negative <- True_Negative + 1
+  }
+  else if(comparison_Naives$nb.pred[x]=="Y" & comparison_Naives$VacantBuilding[x]=="N")
+  {
+    False_Positive <- False_Positive + 1
+  }
+  else if(comparison_Naives$nb.pred[x]=="N" & comparison_Naives$VacantBuilding[x]=="Y")
+  {
+    False_Negative <- False_Negative + 1
+  }
+}
+
+
+
+
